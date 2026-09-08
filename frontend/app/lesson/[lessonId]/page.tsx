@@ -144,9 +144,15 @@ export default function LessonPage() {
       Math.min(5, Number(fallbackHearts))
     );
 
-    const nextXP = Number(currentUser.xp ?? totalXP);
-    const nextGems = Number(currentUser.gems ?? 100);
-    const nextStreak = Number(currentUser.streak ?? 0);
+    const nextXP = Number(
+      _data?.total_xp ?? currentUser.xp ?? totalXP
+    );
+    const nextGems = Number(
+      _data?.gems ?? currentUser.gems ?? 100
+    );
+    const nextStreak = Number(
+      _data?.streak ?? currentUser.streak ?? 0
+    );
 
     setHearts(nextHearts);
     setTotalXP(nextXP);
@@ -578,6 +584,9 @@ export default function LessonPage() {
 
         updateActiveUser({
           hearts: nextHearts,
+          streak: Number(
+            data?.streak ?? currentUser.streak ?? 0
+          ),
         });
 
         setUser(getActiveUser());
@@ -586,9 +595,15 @@ export default function LessonPage() {
           new CustomEvent("duolearn:stats-updated", {
             detail: {
               hearts: nextHearts,
-              gems: Number(currentUser.gems ?? 100),
-              streak: Number(currentUser.streak ?? 0),
-              total_xp: Number(currentUser.xp ?? totalXP),
+              gems: Number(
+                data?.gems ?? currentUser.gems ?? 100
+              ),
+              streak: Number(
+                data?.streak ?? currentUser.streak ?? 0
+              ),
+              total_xp: Number(
+                data?.total_xp ?? currentUser.xp ?? totalXP
+              ),
             },
           })
         );
@@ -678,16 +693,29 @@ export default function LessonPage() {
           setTotalXP(nextXP);
           setHearts(currentHearts);
 
+          const backendStreak = Number(
+            data?.streak ?? currentUser.streak ?? 0
+          );
+
           updateActiveUser({
             xp: nextXP,
             hearts: currentHearts,
-            gems: Number(currentUser.gems ?? 100),
-            streak: Number(currentUser.streak ?? 0),
+            gems: Number(
+              data?.gems ?? currentUser.gems ?? 100
+            ),
+            streak: backendStreak,
           });
 
           setUser(getActiveUser());
 
-          updateGlobalStats({}, currentHearts);
+          updateGlobalStats(
+            {
+              ...data,
+              streak: backendStreak,
+              total_xp: data?.total_xp ?? nextXP,
+            },
+            currentHearts
+          );
         } else {
           updateGlobalStats({}, hearts);
         }
@@ -803,11 +831,17 @@ export default function LessonPage() {
           setTotalXP(nextXP);
           setHearts(currentHearts);
 
+          const backendStreak = Number(
+            data?.streak ?? currentUser.streak ?? 0
+          );
+
           updateActiveUser({
             xp: nextXP,
             hearts: currentHearts,
-            gems: Number(currentUser.gems ?? 100),
-            streak: Number(currentUser.streak ?? 0),
+            gems: Number(
+              data?.gems ?? currentUser.gems ?? 100
+            ),
+            streak: backendStreak,
           });
 
           setUser(getActiveUser());
@@ -816,9 +850,13 @@ export default function LessonPage() {
             new CustomEvent("duolearn:stats-updated", {
               detail: {
                 hearts: currentHearts,
-                gems: Number(currentUser.gems ?? 100),
-                streak: Number(currentUser.streak ?? 0),
-                total_xp: nextXP,
+                gems: Number(
+                  data?.gems ?? currentUser.gems ?? 100
+                ),
+                streak: backendStreak,
+                total_xp: Number(
+                  data?.total_xp ?? nextXP
+                ),
               },
             })
           );
@@ -836,6 +874,9 @@ export default function LessonPage() {
 
         updateActiveUser({
           hearts: nextHearts,
+          streak: Number(
+            data?.streak ?? currentUser.streak ?? 0
+          ),
         });
 
         setUser(getActiveUser());
@@ -844,9 +885,15 @@ export default function LessonPage() {
           new CustomEvent("duolearn:stats-updated", {
             detail: {
               hearts: nextHearts,
-              gems: Number(currentUser.gems ?? 100),
-              streak: Number(currentUser.streak ?? 0),
-              total_xp: Number(currentUser.xp ?? totalXP),
+              gems: Number(
+                data?.gems ?? currentUser.gems ?? 100
+              ),
+              streak: Number(
+                data?.streak ?? currentUser.streak ?? 0
+              ),
+              total_xp: Number(
+                data?.total_xp ?? currentUser.xp ?? totalXP
+              ),
             },
           })
         );
