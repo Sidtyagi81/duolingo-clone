@@ -338,6 +338,65 @@ function CoursePopup({
 }
 
 /* =========================================================
+   CURRENT WEEK
+   ========================================================= */
+
+const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+
+function getTodayWeekIndex() {
+  // Monday = 0, Tuesday = 1, ... Sunday = 6.
+  return (new Date().getDay() + 6) % 7;
+}
+
+function WeekStreakBar({ streak }: { streak: number }) {
+  const todayIndex = getTodayWeekIndex();
+
+  return (
+    <div className="mt-8 rounded-[18px] bg-[#101F25] p-6">
+      <div className="grid grid-cols-7 text-center font-black">
+        {WEEKDAY_LABELS.map((label, index) => {
+          const isToday = index === todayIndex;
+          const isPast = index < todayIndex;
+
+          return (
+            <span
+              key={`${label}-${index}`}
+              title={isToday ? "Today" : isPast ? "Past day" : "Upcoming day"}
+              className={
+                isToday
+                  ? "text-[#FFB12C]"
+                  : isPast && streak > 0
+                    ? "text-[#657C85]"
+                    : "text-[#61777F]"
+              }
+            >
+              {label}
+            </span>
+          );
+        })}
+      </div>
+
+      <div className="relative mt-6 h-3 overflow-hidden rounded-full bg-[#3C5059]">
+        <div
+          className="h-full rounded-full bg-[#FFB12C] transition-all duration-500"
+          style={{
+            width: `${((todayIndex + 1) / 7) * 100}%`,
+          }}
+        />
+      </div>
+
+      <div className="mt-3 grid grid-cols-7 text-center text-[11px] font-bold text-[#61777F]">
+        {WEEKDAY_LABELS.map((label, index) => (
+          <span key={`today-${label}-${index}`}>
+            {index === todayIndex ? "Today" : ""}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    STREAK POPUP
    ========================================================= */
 
@@ -391,19 +450,7 @@ function StreakPopup({
               : "Keep learning today to keep your streak alive!"}
           </p>
 
-          <div className="mt-8 rounded-[18px] bg-[#101F25] p-6">
-            <div className="grid grid-cols-7 text-center font-black text-[#61777F]">
-              <span className="text-[#FFB12C]">M</span>
-              <span>T</span>
-              <span>W</span>
-              <span>T</span>
-              <span>F</span>
-              <span>S</span>
-              <span>S</span>
-            </div>
-
-            <div className="mt-6 h-3 rounded-full bg-[#3C5059]" />
-          </div>
+          <WeekStreakBar streak={streak} />
         </div>
       </div>
     </Popup>
