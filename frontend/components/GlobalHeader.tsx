@@ -682,7 +682,7 @@ function HeartsPopup({
 
 export default function GlobalHeader() {
   const [stats, setStats] = useState<UserStats>({
-    streak: 1,
+    streak: 0,
     gems: 100,
     hearts: 5,
   });
@@ -701,67 +701,30 @@ export default function GlobalHeader() {
     const user = getActiveUser();
 
     /*
-     * DEMO MODE
+     * ACCOUNT-BASED STREAK
      * ---------------------------------------------------------
-     * The backend demo account is user ID 1 and
-     * /activity/1/streak returns streak = 1.
+     * LocalStorage is the source of truth for the browser account.
      *
-     * Do NOT stop when localStorage has no active user.
-     * The deployed demo must still show the backend demo streak.
+     * New account:
+     *   streak = 0
+     *
+     * Existing account that has completed a lesson:
+     *   streak = saved user.streak (for example 1)
+     *
+     * IMPORTANT:
+     * Do not use backend user ID 1 here. Backend ID 1 is the old
+     * demo account and would incorrectly give every newly created
+     * account the same streak.
      */
-    const DEMO_BACKEND_USER_ID = 1;
-
     if (!user) {
-      setActiveUserName("Learner");
+      setActiveUserName("");
       setActiveUserEmail("");
 
-      // Show the verified demo streak immediately.
       setStats({
-        streak: 1,
+        streak: 0,
         gems: 100,
         hearts: 5,
       });
-
-      try {
-        const streakResponse = await getStreak(DEMO_BACKEND_USER_ID);
-
-        const backendStreak =
-          typeof streakResponse === "number"
-            ? Number(streakResponse)
-            : Number(
-                (streakResponse as {
-                  streak?: number;
-                  current_streak?: number;
-                  days?: number;
-                } | null)?.streak ??
-                  (streakResponse as {
-                    current_streak?: number;
-                  } | null)?.current_streak ??
-                  (streakResponse as {
-                    days?: number;
-                  } | null)?.days ??
-                  0
-              );
-
-        const finalStreak =
-          Number.isFinite(backendStreak) && backendStreak > 0
-            ? backendStreak
-            : 1;
-
-        setStats((previous) => ({
-          ...previous,
-          streak: finalStreak,
-        }));
-      } catch (error) {
-        console.warn(
-          "Demo streak request failed; keeping streak at 1:",
-          error
-        );
-        setStats((previous) => ({
-          ...previous,
-          streak: Math.max(1, previous.streak),
-        }));
-      }
 
       return;
     }
@@ -769,109 +732,30 @@ export default function GlobalHeader() {
     setActiveUserName(user.name?.trim() || "Learner");
     setActiveUserEmail(user.email?.trim() || "");
 
-    /*
-     * DEMO ACCOUNT
-     * ---------------------------------------------------------
-     * The lesson API and the working backend streak endpoint
-     * are using backend user ID 1.
-     *
-     * /activity/1/streak currently returns:
-     * { "user_id": 1, "streak": 1 }
-     *
-     * Therefore the header must use the same backend user.
-     */
-    // Show local values immediately, but never let an existing
-    // logged-in demo account display a zero-day streak.
-    const localStreak = Number(user.streak ?? 0);
-    const initialStreak = Math.max(1, localStreak);
+    const savedStreak = Number(user.streak ?? 0);
+    const savedGems = Number(user.gems ?? 100);
+    const savedHearts = Number(user.hearts ?? 5);
+
+    const safeStreak =
+      Number.isFinite(savedStreak) && savedStreak >= 0
+        ? savedStreak
+        : 0;
+
+    const safeGems =
+      Number.isFinite(savedGems) && savedGems >= 0
+        ? savedGems
+        : 100;
+
+    const safeHearts =
+      Number.isFinite(savedHearts) && savedHearts >= 0
+        ? savedHearts
+        : 5;
 
     setStats({
-      streak: initialStreak,
-      gems: Number(user.gems ?? 100),
-      hearts: Number(user.hearts ?? 5),
+      streak: safeStreak,
+      gems: safeGems,
+      hearts: safeHearts,
     });
-
-    // Persist the initial demo streak immediately.
-    if (localStreak < 1) {
-      updateActiveUser({
-        streak: 1,
-      });
-    }
-
-    /*
-     * Refresh from the SAME backend user used by submitAnswer().
-     *
-     * Important:
-     * - Backend user 1 is the working demo account.
-     * - A stale/empty backend response must never make the
-     *   already-visible streak fall back to 0.
-     */
-    try {
-      const streakResponse = await getStreak(DEMO_BACKEND_USER_ID);
-
-      let backendStreak = 0;
-
-      if (typeof streakResponse === "number") {
-        backendStreak = Number(streakResponse);
-      } else if (
-        streakResponse &&
-        typeof streakResponse === "object"
-      ) {
-        const response = streakResponse as {
-          streak?: number;
-          current_streak?: number;
-          days?: number;
-        };
-
-        backendStreak = Number(
-          response.streak ??
-            response.current_streak ??
-            response.days ??
-            0
-        );
-      }
-
-      if (!Number.isFinite(backendStreak) || backendStreak < 0) {
-        backendStreak = 0;
-      }
-
-      /*
-       * For this demo, a logged-in user who has opened the app
-       * has a minimum visible streak of 1.
-       *
-       * This also protects the UI if Vercel temporarily returns
-       * a stale SQLite value of 0.
-       */
-      const finalStreak = Math.max(
-        1,
-        localStreak,
-        backendStreak
-      );
-
-      setStats((previous) => ({
-        ...previous,
-        streak: finalStreak,
-      }));
-
-      updateActiveUser({
-        streak: finalStreak,
-      });
-    } catch (error) {
-      // Keep the local/demo streak visible if the backend request fails.
-      console.warn(
-        "Could not refresh streak from backend. Keeping local streak:",
-        error
-      );
-
-      setStats((previous) => ({
-        ...previous,
-        streak: Math.max(1, previous.streak),
-      }));
-
-      updateActiveUser({
-        streak: Math.max(1, localStreak),
-      });
-    }
   }
 
   /* =======================================================
@@ -901,9 +785,14 @@ export default function GlobalHeader() {
             ? Number(detail.streak)
             : previous.streak;
 
+        /*
+         * Respect the actual account value.
+         * A brand-new account must remain at 0 until it
+         * completes its first lesson.
+         */
         const nextStreak = Number.isFinite(incomingStreak)
-          ? Math.max(1, incomingStreak)
-          : Math.max(1, previous.streak);
+          ? Math.max(0, incomingStreak)
+          : Math.max(0, previous.streak);
 
         const nextGems =
           detail.gems !== undefined
