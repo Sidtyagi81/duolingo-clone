@@ -8,7 +8,7 @@ The project is built with **Next.js + TypeScript** on the frontend and **FastAPI
 
 ## 🚀 Live Demo
 
-Frontend: https://duolingo-clone-roan.vercel.app/
+Frontend: https://duolingo-clone-roan.vercel.app/homepage
 
 Backend API: https://duolearn-backend.vercel.app
 
