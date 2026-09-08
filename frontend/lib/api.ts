@@ -4,24 +4,30 @@ import {
 } from "./userState";
 
 /*
- * Backend URL
+ * ============================================================
+ * BACKEND URL
+ * ============================================================
  *
- * IMPORTANT:
- * In Vercel, set:
+ * Vercel Environment Variable:
  *
  * NEXT_PUBLIC_API_URL=https://duolearn-backend.vercel.app
  *
- * After changing the environment variable, redeploy the frontend.
+ * IMPORTANT:
+ * After changing the environment variable, redeploy
+ * the frontend.
  */
+
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
   "https://duolearn-backend.vercel.app"
 ).replace(/\/+$/, "");
 
 
-/* ============================================================
-   COMMON API FETCH
-   ============================================================ */
+/*
+ * ============================================================
+ * COMMON API FETCH
+ * ============================================================
+ */
 
 async function apiFetch(
   url: string,
@@ -58,6 +64,9 @@ async function apiFetch(
       }
     }
 
+    /*
+     * Handle backend errors
+     */
     if (!response.ok) {
       let message = `Request failed: ${response.status}`;
 
@@ -65,7 +74,9 @@ async function apiFetch(
         if (Array.isArray(data.detail)) {
           message = data.detail
             .map((item: any) =>
-              item?.msg || JSON.stringify(item)
+              item?.msg ||
+              item?.message ||
+              JSON.stringify(item)
             )
             .join(", ");
         } else {
@@ -73,7 +84,10 @@ async function apiFetch(
         }
       } else if (data?.message) {
         message = String(data.message);
-      } else if (typeof data === "string" && data.trim()) {
+      } else if (
+        typeof data === "string" &&
+        data.trim()
+      ) {
         message = data;
       }
 
@@ -81,6 +95,7 @@ async function apiFetch(
     }
 
     return data;
+
   } catch (error) {
     console.error("API REQUEST ERROR:", {
       url,
@@ -91,14 +106,20 @@ async function apiFetch(
       throw error;
     }
 
-    throw new Error("Unable to connect to the backend.");
+    throw new Error(
+      "Unable to connect to the backend."
+    );
   }
 }
 
 
-/* ============================================================
-   USER ID
-   ============================================================ */
+/*
+ * ============================================================
+ * USER ID
+ * ============================================================
+ *
+ * Used by normal user/profile APIs.
+ */
 
 function requireBackendUserId(): number {
   const user = getActiveUser();
@@ -124,15 +145,22 @@ function requireBackendUserId(): number {
 }
 
 
-/* ============================================================
-   COURSE
-   ============================================================ */
+/*
+ * ============================================================
+ * COURSE
+ * ============================================================
+ */
 
 export async function getCourse(
   courseId: number
 ) {
-  if (!Number.isFinite(courseId) || courseId <= 0) {
-    throw new Error("Invalid course ID.");
+  if (
+    !Number.isFinite(courseId) ||
+    courseId <= 0
+  ) {
+    throw new Error(
+      "Invalid course ID."
+    );
   }
 
   return apiFetch(
@@ -141,15 +169,22 @@ export async function getCourse(
 }
 
 
-/* ============================================================
-   LESSON
-   ============================================================ */
+/*
+ * ============================================================
+ * LESSON
+ * ============================================================
+ */
 
 export async function getLesson(
   lessonId: number
 ) {
-  if (!Number.isFinite(lessonId) || lessonId <= 0) {
-    throw new Error("Invalid lesson ID.");
+  if (
+    !Number.isFinite(lessonId) ||
+    lessonId <= 0
+  ) {
+    throw new Error(
+      "Invalid lesson ID."
+    );
   }
 
   return apiFetch(
@@ -158,15 +193,22 @@ export async function getLesson(
 }
 
 
-/* ============================================================
-   UNIT QUESTIONS
-   ============================================================ */
+/*
+ * ============================================================
+ * UNIT QUESTIONS
+ * ============================================================
+ */
 
 export async function getUnitQuestions(
   unitId: number
 ) {
-  if (!Number.isFinite(unitId) || unitId <= 0) {
-    throw new Error("Invalid unit ID.");
+  if (
+    !Number.isFinite(unitId) ||
+    unitId <= 0
+  ) {
+    throw new Error(
+      "Invalid unit ID."
+    );
   }
 
   return apiFetch(
@@ -175,9 +217,11 @@ export async function getUnitQuestions(
 }
 
 
-/* ============================================================
-   USER STATS
-   ============================================================ */
+/*
+ * ============================================================
+ * USER STATS
+ * ============================================================
+ */
 
 export async function getUserStats(
   userId?: number
@@ -185,15 +229,26 @@ export async function getUserStats(
   const id =
     userId ?? requireBackendUserId();
 
+  if (
+    !Number.isFinite(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid user ID."
+    );
+  }
+
   return apiFetch(
     `${API_URL}/users/${id}/stats`
   );
 }
 
 
-/* ============================================================
-   USER PROGRESS
-   ============================================================ */
+/*
+ * ============================================================
+ * USER PROGRESS
+ * ============================================================
+ */
 
 export async function getUserProgress(
   userId?: number
@@ -201,15 +256,26 @@ export async function getUserProgress(
   const id =
     userId ?? requireBackendUserId();
 
+  if (
+    !Number.isFinite(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid user ID."
+    );
+  }
+
   return apiFetch(
     `${API_URL}/progress/${id}`
   );
 }
 
 
-/* ============================================================
-   ACTIVITY
-   ============================================================ */
+/*
+ * ============================================================
+ * ACTIVITY
+ * ============================================================
+ */
 
 export async function getActivity(
   userId?: number
@@ -217,15 +283,26 @@ export async function getActivity(
   const id =
     userId ?? requireBackendUserId();
 
+  if (
+    !Number.isFinite(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid user ID."
+    );
+  }
+
   return apiFetch(
     `${API_URL}/activity/${id}`
   );
 }
 
 
-/* ============================================================
-   STREAK
-   ============================================================ */
+/*
+ * ============================================================
+ * STREAK
+ * ============================================================
+ */
 
 export async function getStreak(
   userId?: number
@@ -233,55 +310,127 @@ export async function getStreak(
   const id =
     userId ?? requireBackendUserId();
 
+  if (
+    !Number.isFinite(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid user ID."
+    );
+  }
+
   return apiFetch(
     `${API_URL}/activity/${id}/streak`
   );
 }
 
 
-/* ============================================================
-   SUBMIT ANSWER
-   ============================================================ */
+/*
+ * ============================================================
+ * SUBMIT ANSWER
+ * ============================================================
+ *
+ * IMPORTANT:
+ *
+ * The deployed backend currently has the seeded/demo
+ * database user as ID 1.
+ *
+ * The previous frontend was sending:
+ *
+ *     811032948
+ *
+ * The backend log showed it trying to INSERT user_stats
+ * for that ID and SQLite failed because the deployed
+ * database is read-only.
+ *
+ * For the current demo deployment, use backend user ID 1.
+ *
+ * Later, when we move to PostgreSQL/Supabase/Neon,
+ * this can be changed back to requireBackendUserId().
+ */
 
 export async function submitAnswer(
   lessonId: number,
   exerciseId: number,
   answer: string
 ) {
+  /*
+   * Validate lesson ID
+   */
   if (
     !Number.isFinite(lessonId) ||
     lessonId <= 0
   ) {
-    throw new Error("Invalid lesson ID.");
+    throw new Error(
+      "Invalid lesson ID."
+    );
   }
 
+  /*
+   * Validate exercise ID
+   */
   if (
     !Number.isFinite(exerciseId) ||
     exerciseId <= 0
   ) {
-    throw new Error("Invalid exercise ID.");
+    throw new Error(
+      "Invalid exercise ID."
+    );
   }
 
-  const cleanAnswer = String(answer ?? "").trim();
+  /*
+   * Clean answer
+   */
+  const cleanAnswer =
+    String(answer ?? "").trim();
 
   if (!cleanAnswer) {
-    throw new Error("Answer cannot be empty.");
+    throw new Error(
+      "Answer cannot be empty."
+    );
   }
 
-  const userId =
-    requireBackendUserId();
+  /*
+   * ==========================================================
+   * DEMO BACKEND USER
+   * ==========================================================
+   *
+   * Your current seeded backend database uses user ID 1.
+   *
+   * DO NOT use getBackendUserId() here for the current
+   * Vercel demo.
+   */
 
-  console.log("SUBMIT ANSWER:", {
-    url: `${API_URL}/lessons/${lessonId}/answer`,
+  const userId = 1;
+
+  console.log(
+    "========================================"
+  );
+
+  console.log(
+    "SUBMIT ANSWER"
+  );
+
+  console.log({
+    url:
+      `${API_URL}/lessons/${lessonId}/answer`,
     user_id: userId,
     exercise_id: exerciseId,
     answer: cleanAnswer,
   });
 
+  console.log(
+    "========================================"
+  );
+
+  /*
+   * Send answer to backend
+   */
   return apiFetch(
     `${API_URL}/lessons/${lessonId}/answer`,
     {
       method: "POST",
+
       body: JSON.stringify({
         user_id: userId,
         exercise_id: exerciseId,
@@ -292,9 +441,11 @@ export async function submitAnswer(
 }
 
 
-/* ============================================================
-   COMPLETE LESSON
-   ============================================================ */
+/*
+ * ============================================================
+ * COMPLETE LESSON
+ * ============================================================
+ */
 
 export async function completeLesson(
   lessonId: number,
@@ -305,44 +456,87 @@ export async function completeLesson(
     !Number.isFinite(lessonId) ||
     lessonId <= 0
   ) {
-    throw new Error("Invalid lesson ID.");
+    throw new Error(
+      "Invalid lesson ID."
+    );
   }
 
+  /*
+   * For the current demo, use backend user 1
+   * when no explicit user ID is supplied.
+   */
   const id =
-    userId ?? requireBackendUserId();
+    userId ?? 1;
+
+  if (
+    !Number.isFinite(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid user ID."
+    );
+  }
+
+  const safeXp =
+    Math.max(
+      0,
+      Number(xpEarned) || 0
+    );
+
+  console.log(
+    "COMPLETE LESSON:",
+    {
+      lessonId,
+      userId: id,
+      xpEarned: safeXp,
+    }
+  );
 
   return apiFetch(
     `${API_URL}/lessons/${lessonId}/complete`,
     {
       method: "POST",
+
       body: JSON.stringify({
         user_id: id,
-        xp_earned: Math.max(
-          0,
-          Number(xpEarned) || 0
-        ),
+        xp_earned: safeXp,
       }),
     }
   );
 }
 
 
-/* ============================================================
-   RESTORE HEARTS
-   ============================================================ */
+/*
+ * ============================================================
+ * RESTORE HEARTS
+ * ============================================================
+ */
 
 export async function restoreHearts(
   userId?: number
 ) {
+  /*
+   * Current demo backend uses user 1.
+   */
   const id =
-    userId ?? requireBackendUserId();
+    userId ?? 1;
 
-  const data = await apiFetch(
-    `${API_URL}/lessons/restore-hearts/${id}`,
-    {
-      method: "POST",
-    }
-  );
+  if (
+    !Number.isFinite(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid user ID."
+    );
+  }
+
+  const data =
+    await apiFetch(
+      `${API_URL}/lessons/restore-hearts/${id}`,
+      {
+        method: "POST",
+      }
+    );
 
   return {
     ...data,
