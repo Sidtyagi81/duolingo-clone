@@ -582,11 +582,14 @@ export default function LessonPage() {
 
         setHearts(nextHearts);
 
+        const nextStreak = Math.max(
+          0,
+          Number(data?.streak ?? currentUser.streak ?? 0)
+        );
+
         updateActiveUser({
           hearts: nextHearts,
-          streak: Number(
-            data?.streak ?? currentUser.streak ?? 0
-          ),
+          streak: nextStreak,
         });
 
         setUser(getActiveUser());
@@ -598,9 +601,7 @@ export default function LessonPage() {
               gems: Number(
                 data?.gems ?? currentUser.gems ?? 100
               ),
-              streak: Number(
-                data?.streak ?? currentUser.streak ?? 0
-              ),
+              streak: nextStreak,
               total_xp: Number(
                 data?.total_xp ?? currentUser.xp ?? totalXP
               ),
@@ -689,21 +690,29 @@ export default function LessonPage() {
             Math.min(5, Number(currentUser.hearts ?? hearts))
           );
 
-          setLessonXP((previous) => previous + earned);
-          setTotalXP(nextXP);
-          setHearts(currentHearts);
-
-          const backendStreak = Number(
-            data?.streak ?? currentUser.streak ?? 0
+          const backendStreak = Number(data?.streak ?? 0);
+          const localStreak = Number(currentUser.streak ?? 0);
+          const nextStreak = Math.max(
+            1,
+            backendStreak,
+            localStreak
           );
 
+          const nextGems = Number(
+            data?.gems ?? currentUser.gems ?? 100
+          );
+
+          setLessonXP((previous) => previous + earned);
+          setTotalXP(
+            Number(data?.total_xp ?? nextXP)
+          );
+          setHearts(currentHearts);
+
           updateActiveUser({
-            xp: nextXP,
+            xp: Number(data?.total_xp ?? nextXP),
             hearts: currentHearts,
-            gems: Number(
-              data?.gems ?? currentUser.gems ?? 100
-            ),
-            streak: backendStreak,
+            gems: nextGems,
+            streak: nextStreak,
           });
 
           setUser(getActiveUser());
@@ -711,8 +720,9 @@ export default function LessonPage() {
           updateGlobalStats(
             {
               ...data,
-              streak: backendStreak,
+              streak: nextStreak,
               total_xp: data?.total_xp ?? nextXP,
+              gems: nextGems,
             },
             currentHearts
           );
@@ -827,33 +837,47 @@ export default function LessonPage() {
             Math.min(5, Number(currentUser.hearts ?? hearts))
           );
 
-          setLessonXP((previous) => previous + earned);
-          setTotalXP(nextXP);
-          setHearts(currentHearts);
-
-          const backendStreak = Number(
-            data?.streak ?? currentUser.streak ?? 0
+          /*
+           * IMPORTANT:
+           * The answer endpoint is the event that starts today's streak.
+           * If the backend returns 0 because its persisted SQLite state
+           * has not refreshed yet, a successful lesson today must still
+           * immediately show at least 1 day in the UI.
+           */
+          const backendStreak = Number(data?.streak ?? 0);
+          const localStreak = Number(currentUser.streak ?? 0);
+          const nextStreak = Math.max(
+            1,
+            backendStreak,
+            localStreak
           );
 
+          const nextGems = Number(
+            data?.gems ?? currentUser.gems ?? 100
+          );
+
+          setLessonXP((previous) => previous + earned);
+          setTotalXP(
+            Number(data?.total_xp ?? nextXP)
+          );
+          setHearts(currentHearts);
+
           updateActiveUser({
-            xp: nextXP,
+            xp: Number(data?.total_xp ?? nextXP),
             hearts: currentHearts,
-            gems: Number(
-              data?.gems ?? currentUser.gems ?? 100
-            ),
-            streak: backendStreak,
+            gems: nextGems,
+            streak: nextStreak,
           });
 
-          setUser(getActiveUser());
+          const updatedUser = getActiveUser();
+          setUser(updatedUser);
 
           window.dispatchEvent(
             new CustomEvent("duolearn:stats-updated", {
               detail: {
                 hearts: currentHearts,
-                gems: Number(
-                  data?.gems ?? currentUser.gems ?? 100
-                ),
-                streak: backendStreak,
+                gems: nextGems,
+                streak: nextStreak,
                 total_xp: Number(
                   data?.total_xp ?? nextXP
                 ),
@@ -872,11 +896,14 @@ export default function LessonPage() {
 
         setHearts(nextHearts);
 
+        const nextStreak = Math.max(
+          0,
+          Number(data?.streak ?? currentUser.streak ?? 0)
+        );
+
         updateActiveUser({
           hearts: nextHearts,
-          streak: Number(
-            data?.streak ?? currentUser.streak ?? 0
-          ),
+          streak: nextStreak,
         });
 
         setUser(getActiveUser());
@@ -888,9 +915,7 @@ export default function LessonPage() {
               gems: Number(
                 data?.gems ?? currentUser.gems ?? 100
               ),
-              streak: Number(
-                data?.streak ?? currentUser.streak ?? 0
-              ),
+              streak: nextStreak,
               total_xp: Number(
                 data?.total_xp ?? currentUser.xp ?? totalXP
               ),
