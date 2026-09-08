@@ -5,7 +5,6 @@ import { ReactNode, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   getActiveUser,
-  getBackendUserId,
   updateActiveUser,
 } from "@/lib/userState";
 import { getStreak } from "@/lib/api";
@@ -677,18 +676,26 @@ export default function GlobalHeader() {
       hearts: Number(user.hearts ?? 5),
     });
 
-    // Streak is maintained by the backend when the learner answers a
-    // lesson. Always refresh it from the CURRENT logged-in account so
-    // the header never displays a stale/static streak.
+    /*
+     * IMPORTANT:
+     * The lesson/API flow currently uses demo backend user ID 1.
+     *
+     * We load that same account here. We also NEVER allow a backend
+     * response of 0 to overwrite a streak that was just earned locally.
+     * This prevents the header from jumping back to 0 immediately after
+     * a successful lesson.
+     */
     try {
-      const backendUserId = getBackendUserId(user);
-      const streakResponse = await getStreak(backendUserId);
+      const streakResponse = await getStreak(1);
 
       let backendStreak = 0;
 
       if (typeof streakResponse === "number") {
         backendStreak = Number(streakResponse);
-      } else if (streakResponse && typeof streakResponse === "object") {
+      } else if (
+        streakResponse &&
+        typeof streakResponse === "object"
+      ) {
         const response = streakResponse as {
           streak?: number;
           current_streak?: number;
@@ -699,28 +706,41 @@ export default function GlobalHeader() {
           response.streak ??
             response.current_streak ??
             response.days ??
-            user.streak ??
-            0,
+            0
         );
       }
 
-      if (Number.isFinite(backendStreak) && backendStreak >= 0) {
+      const localStreak = Number(user.streak ?? 0);
+
+      if (
+        Number.isFinite(backendStreak) &&
+        backendStreak >= 0
+      ) {
+        /*
+         * Use the larger value so a newly earned local streak
+         * cannot be reset by a stale backend 0.
+         */
+        const finalStreak = Math.max(
+          localStreak,
+          backendStreak
+        );
+
         setStats((previous) => ({
           ...previous,
-          streak: backendStreak,
+          streak: finalStreak,
         }));
 
-        // Keep localStorage in sync too, so all pages show the same streak.
-        if (backendStreak !== Number(user.streak ?? 0)) {
+        if (finalStreak !== localStreak) {
           updateActiveUser({
-            streak: backendStreak,
+            streak: finalStreak,
           });
         }
       }
     } catch (error) {
-      // If the backend is temporarily unavailable, keep the locally
-      // saved value instead of breaking the header.
-      console.warn("Could not refresh streak from backend:", error);
+      console.warn(
+        "Could not refresh streak from backend:",
+        error
+      );
     }
   }
 
@@ -743,27 +763,52 @@ export default function GlobalHeader() {
 
       const detail = customEvent.detail;
 
-      if (!detail) {
-        loadStats();
-        return;
-      }
+      if (!detail) return;
 
-      setStats((previous) => ({
-        hearts:
-          detail.hearts !== undefined
-            ? Number(detail.hearts)
-            : previous.hearts,
-
-        gems:
-          detail.gems !== undefined
-            ? Number(detail.gems)
-            : previous.gems,
-
-        streak:
+      setStats((previous) => {
+        const nextStreak =
           detail.streak !== undefined
             ? Number(detail.streak)
-            : previous.streak,
-      }));
+            : previous.streak;
+
+        const nextGems =
+          detail.gems !== undefined
+            ? Number(detail.gems)
+            : previous.gems;
+
+        const nextHearts =
+          detail.hearts !== undefined
+            ? Number(detail.hearts)
+            : previous.hearts;
+
+        /*
+         * Save the new streak immediately.
+         * Do NOT call loadStats() here because an old backend value
+         * could overwrite the freshly earned streak.
+         */
+        if (
+          Number.isFinite(nextStreak) &&
+          nextStreak >= 0
+        ) {
+          const currentUser = getActiveUser();
+
+          if (
+            currentUser &&
+            Number(currentUser.streak ?? 0) !== nextStreak
+          ) {
+            updateActiveUser({
+              streak: nextStreak,
+            });
+          }
+        }
+
+        return {
+          ...previous,
+          hearts: nextHearts,
+          gems: nextGems,
+          streak: nextStreak,
+        };
+      });
     }
 
     function handleLogout() {
