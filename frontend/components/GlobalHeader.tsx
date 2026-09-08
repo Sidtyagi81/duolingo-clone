@@ -669,24 +669,47 @@ export default function GlobalHeader() {
     setActiveUserName(user.name?.trim() || "Learner");
     setActiveUserEmail(user.email?.trim() || "");
 
-    // Load the current account's local values immediately.
+    /*
+     * DEMO ACCOUNT
+     * ---------------------------------------------------------
+     * The lesson API and the working backend streak endpoint
+     * are using backend user ID 1.
+     *
+     * /activity/1/streak currently returns:
+     * { "user_id": 1, "streak": 1 }
+     *
+     * Therefore the header must use the same backend user.
+     */
+    const DEMO_BACKEND_USER_ID = 1;
+
+    // Show local values immediately, but never let an existing
+    // logged-in demo account display a zero-day streak.
+    const localStreak = Number(user.streak ?? 0);
+    const initialStreak = Math.max(1, localStreak);
+
     setStats({
-      streak: Number(user.streak ?? 0),
+      streak: initialStreak,
       gems: Number(user.gems ?? 100),
       hearts: Number(user.hearts ?? 5),
     });
 
+    // Persist the initial demo streak immediately.
+    if (localStreak < 1) {
+      updateActiveUser({
+        streak: 1,
+      });
+    }
+
     /*
-     * IMPORTANT:
-     * The lesson/API flow currently uses demo backend user ID 1.
+     * Refresh from the SAME backend user used by submitAnswer().
      *
-     * We load that same account here. We also NEVER allow a backend
-     * response of 0 to overwrite a streak that was just earned locally.
-     * This prevents the header from jumping back to 0 immediately after
-     * a successful lesson.
+     * Important:
+     * - Backend user 1 is the working demo account.
+     * - A stale/empty backend response must never make the
+     *   already-visible streak fall back to 0.
      */
     try {
-      const streakResponse = await getStreak(1);
+      const streakResponse = await getStreak(DEMO_BACKEND_USER_ID);
 
       let backendStreak = 0;
 
@@ -710,37 +733,46 @@ export default function GlobalHeader() {
         );
       }
 
-      const localStreak = Number(user.streak ?? 0);
-
-      if (
-        Number.isFinite(backendStreak) &&
-        backendStreak >= 0
-      ) {
-        /*
-         * Use the larger value so a newly earned local streak
-         * cannot be reset by a stale backend 0.
-         */
-        const finalStreak = Math.max(
-          localStreak,
-          backendStreak
-        );
-
-        setStats((previous) => ({
-          ...previous,
-          streak: finalStreak,
-        }));
-
-        if (finalStreak !== localStreak) {
-          updateActiveUser({
-            streak: finalStreak,
-          });
-        }
+      if (!Number.isFinite(backendStreak) || backendStreak < 0) {
+        backendStreak = 0;
       }
+
+      /*
+       * For this demo, a logged-in user who has opened the app
+       * has a minimum visible streak of 1.
+       *
+       * This also protects the UI if Vercel temporarily returns
+       * a stale SQLite value of 0.
+       */
+      const finalStreak = Math.max(
+        1,
+        localStreak,
+        backendStreak
+      );
+
+      setStats((previous) => ({
+        ...previous,
+        streak: finalStreak,
+      }));
+
+      updateActiveUser({
+        streak: finalStreak,
+      });
     } catch (error) {
+      // Keep the local/demo streak visible if the backend request fails.
       console.warn(
-        "Could not refresh streak from backend:",
+        "Could not refresh streak from backend. Keeping local streak:",
         error
       );
+
+      setStats((previous) => ({
+        ...previous,
+        streak: Math.max(1, previous.streak),
+      }));
+
+      updateActiveUser({
+        streak: Math.max(1, localStreak),
+      });
     }
   }
 
