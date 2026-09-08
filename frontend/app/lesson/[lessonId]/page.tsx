@@ -150,8 +150,10 @@ export default function LessonPage() {
     const nextGems = Number(
       _data?.gems ?? currentUser.gems ?? 100
     );
-    const nextStreak = Number(
-      _data?.streak ?? currentUser.streak ?? 0
+    // Streak changes ONLY when the whole lesson is completed.
+    const nextStreak = Math.max(
+      0,
+      Number(currentUser.streak ?? 0)
     );
 
     setHearts(nextHearts);
@@ -582,14 +584,11 @@ export default function LessonPage() {
 
         setHearts(nextHearts);
 
-        const nextStreak = Math.max(
-          0,
-          Number(data?.streak ?? currentUser.streak ?? 0)
-        );
-
         updateActiveUser({
           hearts: nextHearts,
-          streak: nextStreak,
+          streak: Number(
+            data?.streak ?? currentUser.streak ?? 0
+          ),
         });
 
         setUser(getActiveUser());
@@ -601,7 +600,9 @@ export default function LessonPage() {
               gems: Number(
                 data?.gems ?? currentUser.gems ?? 100
               ),
-              streak: nextStreak,
+              streak: Number(
+                data?.streak ?? currentUser.streak ?? 0
+              ),
               total_xp: Number(
                 data?.total_xp ?? currentUser.xp ?? totalXP
               ),
@@ -690,29 +691,24 @@ export default function LessonPage() {
             Math.min(5, Number(currentUser.hearts ?? hearts))
           );
 
-          const backendStreak = Number(data?.streak ?? 0);
-          const localStreak = Number(currentUser.streak ?? 0);
-          const nextStreak = Math.max(
-            1,
-            backendStreak,
-            localStreak
-          );
-
-          const nextGems = Number(
-            data?.gems ?? currentUser.gems ?? 100
-          );
-
           setLessonXP((previous) => previous + earned);
-          setTotalXP(
-            Number(data?.total_xp ?? nextXP)
-          );
+          setTotalXP(nextXP);
           setHearts(currentHearts);
 
+          // Do not increase streak for a single exercise.
+          // The streak is updated only after the final lesson step.
+          const currentStreak = Math.max(
+            0,
+            Number(currentUser.streak ?? 0)
+          );
+
           updateActiveUser({
-            xp: Number(data?.total_xp ?? nextXP),
+            xp: nextXP,
             hearts: currentHearts,
-            gems: nextGems,
-            streak: nextStreak,
+            gems: Number(
+              data?.gems ?? currentUser.gems ?? 100
+            ),
+            streak: currentStreak,
           });
 
           setUser(getActiveUser());
@@ -720,9 +716,8 @@ export default function LessonPage() {
           updateGlobalStats(
             {
               ...data,
-              streak: nextStreak,
+              streak: currentStreak,
               total_xp: data?.total_xp ?? nextXP,
-              gems: nextGems,
             },
             currentHearts
           );
@@ -837,47 +832,36 @@ export default function LessonPage() {
             Math.min(5, Number(currentUser.hearts ?? hearts))
           );
 
-          /*
-           * IMPORTANT:
-           * The answer endpoint is the event that starts today's streak.
-           * If the backend returns 0 because its persisted SQLite state
-           * has not refreshed yet, a successful lesson today must still
-           * immediately show at least 1 day in the UI.
-           */
-          const backendStreak = Number(data?.streak ?? 0);
-          const localStreak = Number(currentUser.streak ?? 0);
-          const nextStreak = Math.max(
-            1,
-            backendStreak,
-            localStreak
-          );
-
-          const nextGems = Number(
-            data?.gems ?? currentUser.gems ?? 100
-          );
-
           setLessonXP((previous) => previous + earned);
-          setTotalXP(
-            Number(data?.total_xp ?? nextXP)
-          );
+          setTotalXP(nextXP);
           setHearts(currentHearts);
 
+          // Do not increase streak for a single exercise.
+          // The streak is updated only after the final lesson step.
+          const currentStreak = Math.max(
+            0,
+            Number(currentUser.streak ?? 0)
+          );
+
           updateActiveUser({
-            xp: Number(data?.total_xp ?? nextXP),
+            xp: nextXP,
             hearts: currentHearts,
-            gems: nextGems,
-            streak: nextStreak,
+            gems: Number(
+              data?.gems ?? currentUser.gems ?? 100
+            ),
+            streak: currentStreak,
           });
 
-          const updatedUser = getActiveUser();
-          setUser(updatedUser);
+          setUser(getActiveUser());
 
           window.dispatchEvent(
             new CustomEvent("duolearn:stats-updated", {
               detail: {
                 hearts: currentHearts,
-                gems: nextGems,
-                streak: nextStreak,
+                gems: Number(
+                  data?.gems ?? currentUser.gems ?? 100
+                ),
+                streak: currentStreak,
                 total_xp: Number(
                   data?.total_xp ?? nextXP
                 ),
@@ -896,14 +880,11 @@ export default function LessonPage() {
 
         setHearts(nextHearts);
 
-        const nextStreak = Math.max(
-          0,
-          Number(data?.streak ?? currentUser.streak ?? 0)
-        );
-
         updateActiveUser({
           hearts: nextHearts,
-          streak: nextStreak,
+          streak: Number(
+            data?.streak ?? currentUser.streak ?? 0
+          ),
         });
 
         setUser(getActiveUser());
@@ -915,7 +896,9 @@ export default function LessonPage() {
               gems: Number(
                 data?.gems ?? currentUser.gems ?? 100
               ),
-              streak: nextStreak,
+              streak: Number(
+                data?.streak ?? currentUser.streak ?? 0
+              ),
               total_xp: Number(
                 data?.total_xp ?? currentUser.xp ?? totalXP
               ),
@@ -1045,12 +1028,35 @@ export default function LessonPage() {
       const latestUser = getActiveUser();
 
       if (latestUser) {
+        /*
+         * STREAK RULE:
+         * - A brand-new account starts at 0.
+         * - Completing the first lesson changes 0 -> 1.
+         * - Completing more lessons on the same account does NOT
+         *   reset the streak or give a fake extra streak.
+         *
+         * currentLesson is the lesson the account was working on.
+         * A new account starts at lesson 1, so this detects the
+         * first completed lesson without using a hard-coded user ID.
+         */
+        const wasFirstLesson =
+          Number(latestUser.currentLesson ?? 1) === lessonId;
+
+        const currentStreak = Math.max(
+          0,
+          Number(latestUser.streak ?? 0)
+        );
+
+        const completedLessonStreak = wasFirstLesson
+          ? Math.max(1, currentStreak)
+          : currentStreak;
+
         updateActiveUser({
           currentLesson: nextLessonId,
           hearts: Math.max(0, Math.min(5, Number(hearts))),
           xp: Number(latestUser.xp ?? totalXP),
           gems: Number(latestUser.gems ?? 100),
-          streak: Number(latestUser.streak ?? 0),
+          streak: completedLessonStreak,
         });
 
         const updatedUser = getActiveUser();
