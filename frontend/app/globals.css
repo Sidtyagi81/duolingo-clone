@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+:root {
+  --duo-green: #58cc02;
+  --duo-green-dark: #46a302;
+  --duo-blue: #1cb0f6;
+  --duo-yellow: #ffc800;
+  --duo-red: #ff4b4b;
+  --duo-purple: #ce82ff;
+
+  --background: #0b171b;
+  --surface: #111f24;
+  --surface-2: #172a30;
+  --border: #2a4149;
+  --muted: #78909a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: white;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: #58cc02;
+  color: white;
+}
+
+/* Scrollbar */
+
+::-webkit-scrollbar {
+  width: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b171b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30464e;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #45616a;
+}
+
+/* Duolingo button */
+
+.duo-button {
+  background: #58cc02;
+  border-bottom: 4px solid #3e9200;
+  color: white;
+  font-weight: 900;
+  border-radius: 14px;
+  transition: 0.15s;
+}
+
+.duo-button:hover {
+  background: #61d30a;
+  transform: translateY(-1px);
+}
+
+.duo-button:active {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+
+/* Card */
+
+.duo-card {
+  background: #111f24;
+  border: 2px solid #2a4149;
+  border-radius: 20px;
+}
+
+/* Green card */
+
+.duo-green-card {
+  background: #58cc02;
+  border-radius: 22px;
+  border-bottom: 5px solid #3e9200;
+}
+
+/* Progress */
+
+.duo-progress {
+  height: 14px;
+  background: #263b42;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.duo-progress > div {
+  height: 100%;
+  background: #58cc02;
+  border-radius: inherit;
+  transition: width 0.5s ease;
+}
+
+/* Inputs */
+
+.duo-input {
+  width: 100%;
+  background: #172a30;
+  border: 2px solid #3b555e;
+  color: white;
+  border-radius: 16px;
+  padding: 16px 18px;
+  outline: none;
+  font-weight: 700;
+}
+
+.duo-input::placeholder {
+  color: #6e858d;
+}
+
+.duo-input:focus {
+  border-color: #58cc02;
+  box-shadow: 0 0 0 4px rgba(88, 204, 2, 0.15);
+}
