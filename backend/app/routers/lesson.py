@@ -19,7 +19,7 @@ from app.schemas.progress import LessonCompleteRequest
 
 router = APIRouter(
     prefix="/lessons",
-    tags=["Lessons"]
+    tags=["Lessons"],
 )
 
 
@@ -35,14 +35,17 @@ def normalize_text(value: str) -> str:
         " Hola "       -> "hola"
         "Thank   you"  -> "thank you"
     """
+    if value is None:
+        return ""
+
     return " ".join(
-        value.strip().lower().split()
+        str(value).strip().lower().split()
     )
 
 
 def normalize_match_pairs(value: str):
     """
-    Convert a match-pairs answer into a normalized set.
+    Convert match-pairs answer into a normalized set.
 
     Example:
 
@@ -66,7 +69,7 @@ def normalize_match_pairs(value: str):
     if not value:
         return pairs
 
-    for pair in value.split("|"):
+    for pair in str(value).split("|"):
         pair = pair.strip()
 
         if "=" not in pair:
@@ -78,9 +81,7 @@ def normalize_match_pairs(value: str):
         right = normalize_text(right)
 
         if left and right:
-            pairs.add(
-                (left, right)
-            )
+            pairs.add((left, right))
 
     return pairs
 
@@ -88,7 +89,7 @@ def normalize_match_pairs(value: str):
 def record_daily_activity(
     db: Session,
     user_id: int,
-    xp_earned: int
+    xp_earned: int,
 ):
     """
     Add XP to today's daily activity record.
@@ -100,19 +101,18 @@ def record_daily_activity(
         db.query(DailyActivity)
         .filter(
             DailyActivity.user_id == user_id,
-            DailyActivity.activity_date == today
+            DailyActivity.activity_date == today,
         )
         .first()
     )
 
     if activity:
         activity.xp_earned += xp_earned
-
     else:
         activity = DailyActivity(
             user_id=user_id,
             activity_date=today,
-            xp_earned=xp_earned
+            xp_earned=xp_earned,
         )
 
         db.add(activity)
@@ -120,7 +120,7 @@ def record_daily_activity(
 
 def update_streak(user_stats: UserStats):
     """
-    Update the learner's daily streak.
+    Update learner's daily streak.
     """
 
     today = date.today()
@@ -129,48 +129,59 @@ def update_streak(user_stats: UserStats):
     if user_stats.last_activity == today:
         return
 
-    # Practiced yesterday -> continue streak.
-    if (
-        user_stats.last_activity
-        == today - timedelta(days=1)
-    ):
+    # Practiced yesterday.
+    if user_stats.last_activity == today - timedelta(days=1):
         user_stats.streak += 1
 
-    # First activity or streak was broken.
+    # First activity or streak broken.
     else:
         user_stats.streak = 1
 
     user_stats.last_activity = today
 
 
-
 # =========================================================
-# PER-ACCOUNT HELPERS
+# USER STATS
 # =========================================================
 
-def get_or_create_user_stats(db: Session, user_id: int):
-    """Return stats for this account, creating fresh stats when needed."""
+def get_or_create_user_stats(
+    db: Session,
+    user_id: int,
+):
+    """
+    Return stats for this account.
+
+    If stats do not exist, create them with:
+        hearts = 5
+        XP = 0
+        streak = 0
+    """
+
     user_stats = (
         db.query(UserStats)
-        .filter(UserStats.user_id == user_id)
+        .filter(
+            UserStats.user_id == user_id
+        )
         .first()
     )
 
     if user_stats:
         return user_stats
 
-    # A newly registered learner starts completely from scratch.
-    user_stats = UserStats(user_id=user_id)
-    user_stats.hearts = 5
-    user_stats.total_xp = 0
-    user_stats.daily_xp = 0
-    user_stats.streak = 0
-    user_stats.last_activity = None
+    user_stats = UserStats(
+        user_id=user_id,
+        hearts=5,
+        total_xp=0,
+        daily_xp=0,
+        streak=0,
+        last_activity=None,
+    )
 
     db.add(user_stats)
     db.flush()
 
     return user_stats
+
 
 # =========================================================
 # GET LESSON
@@ -179,25 +190,33 @@ def get_or_create_user_stats(db: Session, user_id: int):
 @router.get("/{lesson_id}")
 def get_lesson(
     lesson_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Return lesson information.
 
     IMPORTANT:
-    correct_answer is NEVER returned to the frontend.
+    correct_answer is NEVER returned to frontend.
     """
+
+    if lesson_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid lesson ID",
+        )
 
     lesson = (
         db.query(Lesson)
-        .filter(Lesson.id == lesson_id)
+        .filter(
+            Lesson.id == lesson_id
+        )
         .first()
     )
 
     if not lesson:
         raise HTTPException(
             status_code=404,
-            detail="Lesson not found"
+            detail="Lesson not found",
         )
 
     exercises = (
@@ -220,12 +239,12 @@ def get_lesson(
             "type": exercise.type,
             "question": exercise.question,
             "explanation": exercise.explanation,
-            "order_index": exercise.order_index
+            "order_index": exercise.order_index,
         }
 
-        # -----------------------------------------------------
+        # -------------------------------------------------
         # Multiple choice options
-        # -----------------------------------------------------
+        # -------------------------------------------------
 
         if exercise.type == "multiple_choice":
 
@@ -244,7 +263,7 @@ def get_lesson(
             data["options"] = [
                 {
                     "id": option.id,
-                    "text": option.text
+                    "text": option.text,
                 }
                 for option in options
             ]
@@ -255,7 +274,7 @@ def get_lesson(
         "id": lesson.id,
         "title": lesson.title,
         "xp_reward": lesson.xp_reward,
-        "exercises": exercise_data
+        "exercises": exercise_data,
     }
 
 
@@ -267,17 +286,47 @@ def get_lesson(
 def submit_answer(
     lesson_id: int,
     request: AnswerRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Validate an exercise answer.
 
     Backend is the source of truth for:
-    - correctness
-    - XP
-    - hearts
-    - streak
+        - correctness
+        - XP
+        - hearts
+        - streak
     """
+
+    # -----------------------------------------------------
+    # Validate IDs
+    # -----------------------------------------------------
+
+    if lesson_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid lesson ID",
+        )
+
+    if request.exercise_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid exercise ID",
+        )
+
+    if request.user_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user ID",
+        )
+
+    answer = normalize_text(request.answer)
+
+    if not answer:
+        raise HTTPException(
+            status_code=400,
+            detail="Answer cannot be empty",
+        )
 
     # -----------------------------------------------------
     # Find exercise
@@ -287,7 +336,7 @@ def submit_answer(
         db.query(Exercise)
         .filter(
             Exercise.id == request.exercise_id,
-            Exercise.lesson_id == lesson_id
+            Exercise.lesson_id == lesson_id,
         )
         .first()
     )
@@ -295,17 +344,30 @@ def submit_answer(
     if not exercise:
         raise HTTPException(
             status_code=404,
-            detail="Exercise not found"
+            detail="Exercise not found",
         )
 
-    # The frontend sends the stable numeric ID for the logged-in account.
+    # -----------------------------------------------------
+    # IMPORTANT
+    #
+    # Use the actual user sent by frontend.
+    #
+    # DO NOT use:
+    #
+    # user_id = 1
+    #
+    # -----------------------------------------------------
+
     user_id = request.user_id
 
     # -----------------------------------------------------
-    # Get user stats
+    # Get/create stats
     # -----------------------------------------------------
 
-    user_stats = get_or_create_user_stats(db, user_id)
+    user_stats = get_or_create_user_stats(
+        db,
+        user_id,
+    )
 
     # -----------------------------------------------------
     # Check hearts
@@ -317,7 +379,7 @@ def submit_answer(
             detail=(
                 "No hearts remaining. "
                 "Please restore hearts."
-            )
+            ),
         )
 
     # =====================================================
@@ -327,22 +389,12 @@ def submit_answer(
     if exercise.type == "match_pairs":
 
         # -------------------------------------------------
-        # IMPORTANT:
+        # Temporary wrong pair
         #
-        # The frontend can send "wrong-match" while the
-        # learner is temporarily selecting pairs.
-        #
-        # This is NOT a final answer.
-        #
-        # Therefore:
-        #   - do NOT remove a heart
-        #   - do NOT add XP
-        #   - do NOT update streak
-        #
-        # The final complete pair set will be checked below.
+        # This should NOT consume a heart.
         # -------------------------------------------------
 
-        if normalize_text(request.answer) == "wrong-match":
+        if answer == "wrong-match":
 
             return {
                 "correct": False,
@@ -351,14 +403,19 @@ def submit_answer(
                 "total_xp": user_stats.total_xp,
                 "daily_xp": user_stats.daily_xp,
                 "streak": user_stats.streak,
+                "gems": getattr(
+                    user_stats,
+                    "gems",
+                    None,
+                ),
                 "explanation": (
                     "That pair does not match. "
                     "Try another combination."
-                )
+                ),
             }
 
         # -------------------------------------------------
-        # Normalize submitted pairs
+        # Submitted pairs
         # -------------------------------------------------
 
         user_pairs = normalize_match_pairs(
@@ -366,7 +423,7 @@ def submit_answer(
         )
 
         # -------------------------------------------------
-        # Normalize correct pairs
+        # Correct pairs
         # -------------------------------------------------
 
         correct_pairs = normalize_match_pairs(
@@ -374,17 +431,12 @@ def submit_answer(
         )
 
         # -------------------------------------------------
-        # Final match validation
-        #
-        # Order does not matter.
-        #
-        # The submitted set must exactly equal the
-        # correct set.
+        # Compare sets
         # -------------------------------------------------
 
         is_correct = (
-            len(user_pairs) == len(correct_pairs)
-            and len(user_pairs) > 0
+            len(user_pairs) > 0
+            and len(user_pairs) == len(correct_pairs)
             and user_pairs == correct_pairs
         )
 
@@ -402,7 +454,7 @@ def submit_answer(
             record_daily_activity(
                 db,
                 user_id,
-                xp_earned
+                xp_earned,
             )
 
             update_streak(
@@ -419,19 +471,21 @@ def submit_answer(
                 "total_xp": user_stats.total_xp,
                 "daily_xp": user_stats.daily_xp,
                 "streak": user_stats.streak,
-                "explanation": exercise.explanation
+                "gems": getattr(
+                    user_stats,
+                    "gems",
+                    None,
+                ),
+                "explanation": exercise.explanation,
             }
 
         # -------------------------------------------------
-        # Wrong FINAL match
-        #
-        # This means the learner submitted the complete
-        # set of pairs but the set was incorrect.
+        # Wrong final match
         # -------------------------------------------------
 
         user_stats.hearts = max(
             0,
-            user_stats.hearts - 1
+            user_stats.hearts - 1,
         )
 
         update_streak(
@@ -448,7 +502,12 @@ def submit_answer(
             "total_xp": user_stats.total_xp,
             "daily_xp": user_stats.daily_xp,
             "streak": user_stats.streak,
-            "explanation": exercise.explanation
+            "gems": getattr(
+                user_stats,
+                "gems",
+                None,
+            ),
+            "explanation": exercise.explanation,
         }
 
     # =====================================================
@@ -481,7 +540,7 @@ def submit_answer(
         record_daily_activity(
             db,
             user_id,
-            xp_earned
+            xp_earned,
         )
 
         update_streak(
@@ -498,7 +557,7 @@ def submit_answer(
 
         user_stats.hearts = max(
             0,
-            user_stats.hearts - 1
+            user_stats.hearts - 1,
         )
 
         update_streak(
@@ -519,8 +578,12 @@ def submit_answer(
         "total_xp": user_stats.total_xp,
         "daily_xp": user_stats.daily_xp,
         "streak": user_stats.streak,
-        "gems": getattr(user_stats, "gems", None),
-        "explanation": exercise.explanation
+        "gems": getattr(
+            user_stats,
+            "gems",
+            None,
+        ),
+        "explanation": exercise.explanation,
     }
 
 
@@ -531,17 +594,22 @@ def submit_answer(
 @router.post("/restore-hearts/{user_id}")
 def restore_hearts(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
-    Restore the learner's hearts.
-
-    This is intentionally simple for the assignment.
-    A production application could use timers, gems,
-    purchases, or other recovery mechanisms.
+    Restore learner's hearts to 5.
     """
 
-    user_stats = get_or_create_user_stats(db, user_id)
+    if user_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user ID",
+        )
+
+    user_stats = get_or_create_user_stats(
+        db,
+        user_id,
+    )
 
     user_stats.hearts = 5
 
@@ -552,7 +620,11 @@ def restore_hearts(
         "message": "Hearts restored successfully",
         "user_id": user_id,
         "hearts": user_stats.hearts,
-        "gems": getattr(user_stats, "gems", None),
+        "gems": getattr(
+            user_stats,
+            "gems",
+            None,
+        ),
         "streak": user_stats.streak,
         "total_xp": user_stats.total_xp,
     }
@@ -566,19 +638,27 @@ def restore_hearts(
 def complete_lesson(
     lesson_id: int,
     request: LessonCompleteRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
-    Mark a lesson as completed and update skill progress.
+    Mark lesson as completed.
 
     XP has already been awarded by /answer.
-    Therefore this endpoint updates skill progress only
-    and does NOT add XP to UserStats again.
+    Therefore this endpoint does NOT add XP
+    to UserStats again.
     """
 
-    # -----------------------------------------------------
-    # Find lesson
-    # -----------------------------------------------------
+    if lesson_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid lesson ID",
+        )
+
+    if request.user_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user ID",
+        )
 
     lesson = (
         db.query(Lesson)
@@ -591,21 +671,13 @@ def complete_lesson(
     if not lesson:
         raise HTTPException(
             status_code=404,
-            detail="Lesson not found"
+            detail="Lesson not found",
         )
-
-    # -----------------------------------------------------
-    # Get stats
-    # -----------------------------------------------------
 
     user_stats = get_or_create_user_stats(
         db,
         request.user_id,
     )
-
-    # -----------------------------------------------------
-    # Get skill progress
-    # -----------------------------------------------------
 
     progress = (
         db.query(UserSkillProgress)
@@ -613,12 +685,13 @@ def complete_lesson(
             UserSkillProgress.user_id
             == request.user_id,
             UserSkillProgress.skill_id
-            == lesson.skill_id
+            == lesson.skill_id,
         )
         .first()
     )
 
     if not progress:
+
         progress = UserSkillProgress(
             user_id=request.user_id,
             skill_id=lesson.skill_id,
@@ -627,11 +700,12 @@ def complete_lesson(
             completed=False,
             is_unlocked=True,
         )
+
         db.add(progress)
         db.flush()
 
     # -----------------------------------------------------
-    # Check existing completed attempt
+    # Already completed?
     # -----------------------------------------------------
 
     existing_attempt = (
@@ -641,7 +715,7 @@ def complete_lesson(
             == request.user_id,
             LessonAttempt.lesson_id
             == lesson_id,
-            LessonAttempt.completed == True
+            LessonAttempt.completed == True,
         )
         .first()
     )
@@ -662,7 +736,7 @@ def complete_lesson(
             "hearts":
                 user_stats.hearts,
             "total_user_xp":
-                user_stats.total_xp
+                user_stats.total_xp,
         }
 
     # -----------------------------------------------------
@@ -671,7 +745,7 @@ def complete_lesson(
 
     lesson_xp = max(
         0,
-        request.xp_earned
+        int(request.xp_earned or 0),
     )
 
     # -----------------------------------------------------
@@ -683,7 +757,7 @@ def complete_lesson(
         lesson_id=lesson_id,
         xp_earned=lesson_xp,
         mistakes=0,
-        completed=True
+        completed=True,
     )
 
     db.add(attempt)
@@ -692,14 +766,8 @@ def complete_lesson(
     # Update skill progress
     # -----------------------------------------------------
 
-    progress.completed_lessons = (
-        progress.completed_lessons + 1
-    )
-
-    progress.total_xp = (
-        progress.total_xp + lesson_xp
-    )
-
+    progress.completed_lessons += 1
+    progress.total_xp += lesson_xp
     progress.is_unlocked = True
 
     # -----------------------------------------------------
@@ -723,15 +791,14 @@ def complete_lesson(
         progress.completed = True
 
     # -----------------------------------------------------
-    # Make sure today's activity exists
+    # Ensure daily activity exists
     # -----------------------------------------------------
 
     if lesson_xp > 0:
-
         record_daily_activity(
             db,
             request.user_id,
-            0
+            0,
         )
 
     # -----------------------------------------------------
@@ -757,5 +824,5 @@ def complete_lesson(
         "hearts":
             user_stats.hearts,
         "total_user_xp":
-            user_stats.total_xp
+            user_stats.total_xp,
     }
