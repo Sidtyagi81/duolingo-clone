@@ -16,6 +16,11 @@ from app.routers.progress import router as progress_router
 # =========================================================
 
 Base.metadata.create_all(bind=engine)
+try:
+    from app.seed import seed_database
+    seed_database()
+except Exception as e:
+    print("Seed error:", e)
 
 
 # =========================================================
