@@ -700,20 +700,25 @@ export default function GlobalHeader() {
     const user = getActiveUser();
 
     /*
-     * ACCOUNT-BASED STREAK
-     * ---------------------------------------------------------
-     * LocalStorage is the source of truth for the browser account.
+     * =========================================================
+     * FINAL ACCOUNT-BASED STREAK LOGIC
+     * =========================================================
      *
-     * New account:
+     * Every browser account owns its own streak.
+     *
+     * A newly created account is initialized as:
      *   streak = 0
+     *   xp = 0
+     *   currentLesson = 1
      *
-     * Existing account that has completed a lesson:
-     *   streak = saved user.streak (for example 1)
+     * Therefore a completely new account MUST always display 0.
      *
-     * IMPORTANT:
-     * Do not use backend user ID 1 here. Backend ID 1 is the old
-     * demo account and would incorrectly give every newly created
-     * account the same streak.
+     * Once the user completes the first lesson, XP/currentLesson
+     * changes and the lesson page saves the earned streak into
+     * that same account.
+     *
+     * We deliberately do NOT read backend user ID 1 here because
+     * that belongs to the old demo account.
      */
     if (!user) {
       setActiveUserName("");
@@ -731,12 +736,25 @@ export default function GlobalHeader() {
     setActiveUserName(user.name?.trim() || "Learner");
     setActiveUserEmail(user.email?.trim() || "");
 
+    const savedXP = Number(user.xp ?? 0);
     const savedStreak = Number(user.streak ?? 0);
+    const savedCurrentLesson = Number(user.currentLesson ?? 1);
     const savedGems = Number(user.gems ?? 100);
     const savedHearts = Number(user.hearts ?? 5);
 
-    const safeStreak =
-      Number.isFinite(savedStreak) && savedStreak >= 0
+    /*
+     * CRITICAL:
+     * If this is a fresh account that has never completed a lesson,
+     * force its streak to 0 even if an old/stale event tried to put
+     * 1 into the header.
+     */
+    const isBrandNewAccount =
+      savedCurrentLesson <= 1 &&
+      savedXP <= 0;
+
+    const safeStreak = isBrandNewAccount
+      ? 0
+      : Number.isFinite(savedStreak) && savedStreak >= 0
         ? savedStreak
         : 0;
 
@@ -749,6 +767,16 @@ export default function GlobalHeader() {
       Number.isFinite(savedHearts) && savedHearts >= 0
         ? savedHearts
         : 5;
+
+    /*
+     * If the account is genuinely new, also repair its saved
+     * streak so the bad value cannot come back after refresh.
+     */
+    if (isBrandNewAccount && savedStreak !== 0) {
+      updateActiveUser({
+        streak: 0,
+      });
+    }
 
     setStats({
       streak: safeStreak,
@@ -785,13 +813,27 @@ export default function GlobalHeader() {
             : previous.streak;
 
         /*
-         * Respect the actual account value.
-         * A brand-new account must remain at 0 until it
-         * completes its first lesson.
+         * FINAL SAFETY CHECK:
+         * Never allow a new account to inherit another user's
+         * streak through a stale/custom stats event.
          */
-        const nextStreak = Number.isFinite(incomingStreak)
-          ? Math.max(0, incomingStreak)
-          : Math.max(0, previous.streak);
+        const currentUser = getActiveUser();
+
+        const currentXP = Number(currentUser?.xp ?? 0);
+        const currentLesson = Number(
+          currentUser?.currentLesson ?? 1
+        );
+
+        const isBrandNewAccount =
+          !!currentUser &&
+          currentLesson <= 1 &&
+          currentXP <= 0;
+
+        const nextStreak = isBrandNewAccount
+          ? 0
+          : Number.isFinite(incomingStreak)
+            ? Math.max(0, incomingStreak)
+            : Math.max(0, previous.streak);
 
         const nextGems =
           detail.gems !== undefined
@@ -812,8 +854,6 @@ export default function GlobalHeader() {
           Number.isFinite(nextStreak) &&
           nextStreak >= 0
         ) {
-          const currentUser = getActiveUser();
-
           if (
             currentUser &&
             Number(currentUser.streak ?? 0) !== nextStreak
