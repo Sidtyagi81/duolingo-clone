@@ -7,7 +7,6 @@ import {
   getActiveUser,
   updateActiveUser,
 } from "@/lib/userState";
-import { getStreak } from "@/lib/api";
 
 /* =========================================================
    TYPES
@@ -834,6 +833,12 @@ export default function GlobalHeader() {
       });
     }
 
+    function handleLogin() {
+      // Account may have changed. Reload ONLY that active account's saved stats.
+      loadStats();
+      setPopup(null);
+    }
+
     function handleLogout() {
       setActiveUserName("");
       setActiveUserEmail("");
@@ -870,6 +875,11 @@ export default function GlobalHeader() {
     );
 
     window.addEventListener(
+      "duolearn:login",
+      handleLogin
+    );
+
+    window.addEventListener(
       "duolearn:logout",
       handleLogout
     );
@@ -893,6 +903,11 @@ export default function GlobalHeader() {
       window.removeEventListener(
         "duolearn:stats-updated",
         handleStatsUpdated
+      );
+
+      window.removeEventListener(
+        "duolearn:login",
+        handleLogin
       );
 
       window.removeEventListener(
